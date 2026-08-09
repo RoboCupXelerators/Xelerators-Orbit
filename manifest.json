@@ -1,10 +1,10 @@
 {
   "schema": 1,
   "channel": "stable",
-  "version": "runtime-2",
+  "version": "runtime-5",
   "image": "ghcr.io/robocupxelerators/project-exterior-runner:stable",
-  "digest": "sha256:43cc127658c1aab6e315454123fd96c21858f31c11f46a7ed5a8276473e30f85",
-  "package": "https://github.com/RoboCupXelerators/Xelerators-Orbit/releases/download/runtime-2/project-exterior-runner.zip",
+  "digest": "sha256:1fc36e02e4c05e5787ae58619846fbaf85bb54e74ad459cbd318d93e89d67969",
+  "package": "https://github.com/RoboCupXelerators/Xelerators-Orbit/releases/download/runtime-5/project-exterior-runner.zip",
   "source": {
     "project_exterior": "4b1caedba8ba87cb0558f36c581b7679d37955d5",
     "tree_diagram_dataset": "ae572385bab9ec8f52bd27214e111dddf2a6d1f7"
