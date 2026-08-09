@@ -35,6 +35,14 @@ The image must be pinned to the digest from the manifest in production. The
 
 Run the `Publish runtime` workflow manually, or trigger it from a source
 repository with `repository_dispatch` event `runtime-source-updated`. The
-workflow requires package write permission and contents write permission. If
-the source repositories are private, add a fine-grained `SOURCE_REPO_TOKEN`
-secret with read-only access to both source repositories.
+workflow requires package write permission and contents write permission.
+The source repositories remain private: add a fine-grained
+`SOURCE_REPO_TOKEN` secret with read-only access to both source repositories.
+Add a separate `PACKAGE_ADMIN_TOKEN` secret with package visibility
+administration permission so the workflow can make the compiled GHCR package
+public. The workflow fails before creating a Release if anonymous GHCR pull is
+not possible.
+
+The container image is the primary OTA artifact. The Release ZIP is a fallback
+for native/offline installation; neither artifact contains the private source
+repositories.

@@ -19,7 +19,6 @@ permissions:
   packages: write
 
 env:
-  OWNER: robocupxelerators
   IMAGE: ghcr.io/robocupxelerators/project-exterior-runner
   PROJECT_REPOSITORY: RoboCupXelerators/Project-Exterior
   TREE_REPOSITORY: RoboCupXelerators/TreeDiagramDataset
@@ -27,6 +26,8 @@ env:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      PACKAGE_ADMIN_TOKEN: ${{ secrets.PACKAGE_ADMIN_TOKEN }}
     steps:
       - name: Checkout release metadata
         uses: actions/checkout@v4
@@ -91,6 +92,22 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ steps.revisions.outputs.project }}
+
+      - name: Set GHCR package public
+        if: ${{ env.PACKAGE_ADMIN_TOKEN != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.PACKAGE_ADMIN_TOKEN }}
+        run: |
+          gh api --method PATCH \
+            "orgs/${{ github.repository_owner }}/packages/container/project-exterior-runner" \
+            -f visibility=public
+
+      - name: Verify anonymous GHCR pull
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --head \
+            --header 'Accept: application/vnd.oci.image.manifest.v1+json' \
+            "https://ghcr.io/v2/robocupxelerators/project-exterior-runner/manifests/stable"
 
       - name: Create release
         id: release
