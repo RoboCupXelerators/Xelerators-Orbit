@@ -105,7 +105,12 @@ jobs:
       - name: Verify anonymous GHCR pull
         shell: bash
         run: |
+          registry_token=$(curl --fail --silent --show-error \
+            'https://ghcr.io/token?service=ghcr.io&scope=repository:robocupxelerators/project-exterior-runner:pull' \
+            | jq -r '.token')
+          test -n "$registry_token" && test "$registry_token" != "null"
           curl --fail --silent --show-error --head \
+            --header "Authorization: Bearer $registry_token" \
             --header 'Accept: application/vnd.oci.image.manifest.v1+json' \
             "https://ghcr.io/v2/robocupxelerators/project-exterior-runner/manifests/stable"
 
