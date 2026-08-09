@@ -92,6 +92,11 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ steps.revisions.outputs.project }}
 
+      - name: Make GHCR package public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh api --method PATCH user/packages/container/project-exterior-runner -f visibility=public
+
       - name: Create release
         id: release
         uses: softprops/action-gh-release@v2
