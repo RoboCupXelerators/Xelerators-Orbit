@@ -1,0 +1,127 @@
+name: Publish runtime
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_exterior_ref:
+        description: Project-Exterior branch, tag, or commit
+        required: false
+        default: main
+      tree_diagram_ref:
+        description: TreeDiagramDataset branch, tag, or commit
+        required: false
+        default: main
+  repository_dispatch:
+    types: [runtime-source-updated]
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  OWNER: robocupxelerators
+  IMAGE: ghcr.io/robocupxelerators/project-exterior-runner
+  PROJECT_REPOSITORY: RoboCupXelerators/Project-Exterior
+  TREE_REPOSITORY: RoboCupXelerators/TreeDiagramDataset
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release metadata
+        uses: actions/checkout@v4
+
+      - name: Resolve source refs
+        id: refs
+        shell: bash
+        env:
+          EVENT_PROJECT_REF: ${{ github.event.client_payload.project_exterior_ref }}
+          EVENT_TREE_REF: ${{ github.event.client_payload.tree_diagram_ref }}
+          INPUT_PROJECT_REF: ${{ inputs.project_exterior_ref }}
+          INPUT_TREE_REF: ${{ inputs.tree_diagram_ref }}
+        run: |
+          echo "project=${EVENT_PROJECT_REF:-${INPUT_PROJECT_REF:-main}}" >> "$GITHUB_OUTPUT"
+          echo "tree=${EVENT_TREE_REF:-${INPUT_TREE_REF:-main}}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Project-Exterior source temporarily
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PROJECT_REPOSITORY }}
+          ref: ${{ steps.refs.outputs.project }}
+          path: sources/Project-Exterior
+          token: ${{ secrets.SOURCE_REPO_TOKEN || github.token }}
+
+      - name: Checkout TreeDiagramDataset source temporarily
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TREE_REPOSITORY }}
+          ref: ${{ steps.refs.outputs.tree }}
+          path: sources/TreeDiagramDataset
+          token: ${{ secrets.SOURCE_REPO_TOKEN || github.token }}
+
+      - name: Package runner
+        working-directory: sources/Project-Exterior
+        run: python3 scripts/package-runner.py --output "$GITHUB_WORKSPACE/project-exterior-runner.zip"
+
+      - name: Log source revisions
+        id: revisions
+        shell: bash
+        run: |
+          echo "project=$(git -C sources/Project-Exterior rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "tree=$(git -C sources/TreeDiagramDataset rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push immutable image
+        id: image
+        uses: docker/build-push-action@v6
+        with:
+          context: sources/Project-Exterior
+          file: sources/Project-Exterior/deploy/runner/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:stable
+            ${{ env.IMAGE }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.revisions.outputs.project }}
+
+      - name: Create release
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: runtime-${{ github.run_number }}
+          name: Runtime ${{ github.run_number }}
+          generate_release_notes: true
+          files: project-exterior-runner.zip
+
+      - name: Update OTA manifest
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+          PROJECT_REVISION: ${{ steps.revisions.outputs.project }}
+          TREE_REVISION: ${{ steps.revisions.outputs.tree }}
+        shell: bash
+        run: |
+          jq -n \
+            --arg version "runtime-${GITHUB_RUN_NUMBER}" \
+            --arg image "${IMAGE}:stable" \
+            --arg digest "$DIGEST" \
+            --arg package "https://github.com/${GITHUB_REPOSITORY}/releases/download/runtime-${GITHUB_RUN_NUMBER}/project-exterior-runner.zip" \
+            --arg project "$PROJECT_REVISION" \
+            --arg tree "$TREE_REVISION" \
+            '{schema: 1, channel: "stable", version: $version, image: $image, digest: $digest, package: $package, source: {project_exterior: $project, tree_diagram_dataset: $tree}}' \
+            > manifest.json
+
+      - name: Commit manifest
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add manifest.json
+          git commit -m "chore: publish runtime ${{ github.run_number }}"
+          git push

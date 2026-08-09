@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "channel": "stable",
+  "version": "unpublished",
+  "image": "ghcr.io/robocupxelerators/project-exterior-runner:stable",
+  "digest": "",
+  "package": "https://github.com/RoboCupXelerators/Xelerators-Orbit/releases/latest/download/project-exterior-runner.zip",
+  "source": {
+    "project_exterior": "unpublished",
+    "tree_diagram_dataset": "unpublished"
+  }
+}
